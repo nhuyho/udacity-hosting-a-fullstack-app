@@ -3,42 +3,38 @@ orbs:
   node: circleci/node@4.2.0
   aws-cli: circleci/aws-cli@2.0.0
 jobs:
-  frontend:
-    working_directory: /udagram-frontend
-    executor: node/default
-    steps:
-      - checkout:
-          path: ~/app
-      - node/install-packages:
-          app-dir: udagram-frontend
+  build:
+    docker:
+      - image: "cimg/base:stable"
+  
+   steps:
+      - node/install
+      - checkout
+      - aws-cli/setup
       - run:
-          name: Build Frontend
-          command: npm run build
-      - aws-cli/install
+          name: Front-End Install
+          command: |
+            npm run frontend:install
       - run:
-          name: Deploy Frontend
-          command: aws s3 cp --recursive --acl public-read ./www $S3_BUCKET_FRONTEND
-  server:
-    working_directory: /udagram-api
-    executor: node/default
-    steps:
-      - checkout:
-          path: ~/app
-      - node/install-packages:
-          app-dir: /udagram-api
+          name: Back-End Install
+          command: |
+            npm run backend:install
       - run:
-          name: Build and Archive Server
-          command: |-
-            npm run build
-            printenv > www/.env
-            npm run archive
-      - aws-cli/install
+          name: Front-End Build
+          command: |
+            npm run frontend:build
       - run:
-          name: Deploy Server
-          command: |-
-            aws s3 cp ./www/Archive.zip $S3_BUCKET_SERVER
-            aws elasticbeanstalk create-application-version --application-name $EB_APP --version-label <<pipeline.git.revision>> --source-bundle S3Bucket="$EB_BUCKET",S3Key="Archive.zip"
-            aws elasticbeanstalk update-environment --application-name $EB_APP --environment-name $EB_ENV --version-label <<pipeline.git.revision>>
+          name: Back-End Build
+          command: |
+            npm run backend:build
+      - run:
+          name: Deploy App
+          command: |
+            npm run frontend:deploy
+
+      # - run:
+      #     name: Deploy Frontend
+      #     command: aws s3 cp --recursive --acl public-read ./www $S3_BUCKET_FRONTEND
 workflows:
   build_and_deploy:
     jobs:
